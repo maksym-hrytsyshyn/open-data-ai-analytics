@@ -28,6 +28,9 @@ jobs:
       matrix:
         module: [data_load, data_quality_analysis, data_research, visualization]
 
+    env:
+      MPLBACKEND: Agg
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,23 +49,17 @@ jobs:
       - name: Download dataset
         run: |
           mkdir -p data/raw
-          python -c "
-            import sys; sys.path.insert(0, 'src')
-            from data_load import download
-            download()
-          "
+          python -c "import sys; sys.path.insert(0,'src'); from data_load import download; download()"
 
       - name: Run module
-        env:
-          MPLBACKEND: Agg
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.module == 'all' || github.event.inputs.module == matrix.module }}
         run: |
           mkdir -p artifacts/${{ matrix.module }}
-          cd src
-          python ${{ matrix.module }}.py > ../artifacts/${{ matrix.module }}/run.log 2>&1
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.module == 'all' || github.event.inputs.module == matrix.module }}
+          python src/${{ matrix.module }}.py 2>&1 | tee artifacts/${{ matrix.module }}/run.log
+
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.module == 'all' || github.event.inputs.module == matrix.module }}
         with:
           name: artifacts-${{ matrix.module }}
           path: artifacts/${{ matrix.module }}
