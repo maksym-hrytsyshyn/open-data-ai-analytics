@@ -43,13 +43,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Download dataset
+        run: |
+          mkdir -p data/raw
+          python -c "
+            import sys; sys.path.insert(0, 'src')
+            from data_load import download
+            download()
+          "
+
       - name: Run module
+        env:
+          MPLBACKEND: Agg
         run: |
           mkdir -p artifacts/${{ matrix.module }}
           cd src
           python ${{ matrix.module }}.py > ../artifacts/${{ matrix.module }}/run.log 2>&1
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.module == 'all' || github.event.inputs.module == matrix.module }}
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.module == 'all' || github.event.inputs.module == matrix.module }}
