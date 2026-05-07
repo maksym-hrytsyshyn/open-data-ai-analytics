@@ -28,8 +28,6 @@ jobs:
       matrix:
         module: [data_load, data_quality_analysis, data_research, visualization]
 
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.module == 'all' || github.event.inputs.module == matrix.module }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,9 +48,11 @@ jobs:
           mkdir -p artifacts/${{ matrix.module }}
           cd src
           python ${{ matrix.module }}.py > ../artifacts/${{ matrix.module }}/run.log 2>&1
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.module == 'all' || github.event.inputs.module == matrix.module }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.module == 'all' || github.event.inputs.module == matrix.module }}
         with:
           name: artifacts-${{ matrix.module }}
           path: artifacts/${{ matrix.module }}
