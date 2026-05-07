@@ -1,0 +1,41 @@
+name: CI (self-hosted)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-visualization-local:
+    runs-on: [self-hosted, macOS, ARM64]
+
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use system Python
+        run: |
+          python3 --version
+          pip3 --version
+
+      - name: Install dependencies
+        run: |
+          pip3 install pandas requests matplotlib --break-system-packages || \
+          pip3 install pandas requests matplotlib
+
+      - name: Download dataset
+        run: |
+          mkdir -p data/raw
+          python3 -c "import sys; sys.path.insert(0,'src'); from data_load import download; download()"
+
+      - name: Run visualization module
+        run: |
+          mkdir -p artifacts/visualization
+          python3 src/visualization.py 2>&1 | tee artifacts/visualization/run.log
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-visualization-selfhosted
+          path: artifacts/visualization
