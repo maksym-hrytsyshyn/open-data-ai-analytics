@@ -14,7 +14,6 @@ def quality_report(df: pd.DataFrame) -> dict:
 
 
 def to_numeric_ua(series: pd.Series) -> pd.Series:
-    """Конвертує рядки типу '5 045,30' у float."""
     if series.dtype != "object":
         return series
     cleaned = (
@@ -27,7 +26,6 @@ def to_numeric_ua(series: pd.Series) -> pd.Series:
 
 
 def coerce_numeric_columns(df: pd.DataFrame, exclude: list[str]) -> pd.DataFrame:
-    """Конвертує всі колонки крім exclude у числові."""
     out = df.copy()
     for col in out.columns:
         if col in exclude:
