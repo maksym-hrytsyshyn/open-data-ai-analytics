@@ -1,18 +1,59 @@
 from __future__ import annotations
-import sys
 import os
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
+from pathlib import Path
 
-sys.path.insert(0, "src")
-from data_load import download, load
-from data_quality_analysis import coerce_numeric_columns
+USE_DB = os.environ.get("USE_DB", "")
+PLOTS_PATH = os.environ.get(
+    "PLOTS_PATH",
+    str(Path(__file__).resolve().parents[1] / "reports" / "figures")
+)
 
-FIG_DIR = "reports/figures"
+FIG_DIR = PLOTS_PATH
 EXCLUDE = ["Unnamed: 0", "Показник"]
-COLS_2020 = ["Прогноз 2020 сценарій 1", "Прогноз 2020 сценарій 2", "Прогноз 2020 сценарій 3"]
-COLS_2021 = ["Прогноз 2021 сценарій 1", "Прогноз 2021 сценарій 2", "Прогноз 2021 сценарій 3"]
+COLS_2020 = ["Прогноз_2020_сценарій_1", "Прогноз_2020_сценарій_2", "Прогноз_2020_сценарій_3"]
+COLS_2021 = ["Прогноз_2021_сценарій_1", "Прогноз_2021_сценарій_2", "Прогноз_2021_сценарій_3"]
 
+def load_data() -> pd.DataFrame:
+    if USE_DB == "postgres":
+        import psycopg2
+        conn = psycopg2.connect(
+            host=os.environ["POSTGRES_HOST"],
+            port=int(os.environ.get("POSTGRES_PORT", 5432)),
+            dbname=os.environ["POSTGRES_DB"],
+            user=os.environ["POSTGRES_USER"],
+            password=os.environ["POSTGRES_PASSWORD"],
+        )
+        df = pd.read_sql("SELECT * FROM macro", conn)
+        conn.close()
+        print(f"[load] OK, shape={df.shape}")
+        return df
+    else:
+        raw = Path(__file__).resolve().parents[1] / "data" / "raw" / "macro_indicators.csv"
+        return pd.read_csv(raw)
+
+
+def _to_numeric_ua(series: pd.Series) -> pd.Series:
+    if pd.api.types.is_numeric_dtype(series):
+        return series
+    cleaned = (
+        series.astype(str)
+        .str.strip()
+        .str.replace(r"[\u00a0\u2009\u202f\s]", "", regex=True)
+        .str.replace(",", ".", regex=False)
+    )
+    return pd.to_numeric(cleaned, errors="coerce")
+
+
+def prepare(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    for col in out.columns:
+        if col not in ["Unnamed: 0", "Показник"]:
+            out[col] = _to_numeric_ua(out[col])
+    return out
 
 def _save(filename: str) -> str:
     os.makedirs(FIG_DIR, exist_ok=True)
@@ -25,7 +66,8 @@ def _save(filename: str) -> str:
 
 
 def plot_scenario_comparison(df: pd.DataFrame) -> str:
-    top5 = df.nlargest(5, "Прогноз 2020 сценарій 2")[["Показник"] + COLS_2020 + COLS_2021]
+    df_prepared = prepare(df.copy())
+    top5 = df_prepared.nlargest(5, "Прогноз_2020_сценарій_2")[["Показник"] + COLS_2020 + COLS_2021]
     labels = [p[:30] + "..." if len(p) > 30 else p for p in top5["Показник"]]
     x = range(len(labels))
     width = 0.15
@@ -60,11 +102,11 @@ def plot_spread(df: pd.DataFrame) -> str:
 
 
 def plot_yoy(df: pd.DataFrame, scenario: int = 2) -> str:
-    """Зміна показників 2020→2021 для базового сценарію."""
-    c2020 = f"Прогноз 2020 сценарій {scenario}"
-    c2021 = f"Прогноз 2021 сценарій {scenario}"
+    c2020 = f"Прогноз_2020_сценарій_{scenario}"
+    c2021 = f"Прогноз_2021_сценарій_{scenario}"
+    ind = "Показник"
     pct = ((df[c2021] - df[c2020]) / df[c2020] * 100).round(2)
-    labels = [p[:25] + "..." if len(p) > 25 else p for p in df["Показник"]]
+    labels = [p[:25] + "..." if len(p) > 25 else p for p in df[ind]]
 
     colors = ["#2ecc71" if v >= 0 else "#e74c3c" for v in pct]
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -77,10 +119,8 @@ def plot_yoy(df: pd.DataFrame, scenario: int = 2) -> str:
 
 
 if __name__ == "__main__":
-    path = download()
-    df = coerce_numeric_columns(load(path), exclude=EXCLUDE)
-
+    df = prepare(load_data())
     plot_scenario_comparison(df)
     plot_spread(df)
     plot_yoy(df)
-    print("Всі графіки збережено у reports/figures/")
+    print(f"Всі графіки збережено у {PLOTS_PATH}")

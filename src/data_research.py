@@ -1,26 +1,50 @@
 from __future__ import annotations
+import os
+import json
 import sys
 import pandas as pd
+from pathlib import Path
 
-sys.path.insert(0, "src")
-from data_load import download, load
+USE_DB = os.environ.get("USE_DB", "")
+REPORTS_PATH = os.environ.get(
+    "REPORTS_PATH",
+    str(Path(__file__).resolve().parents[1] / "reports")
+)
 
 EXCLUDE = ["Unnamed: 0", "Показник"]
-COLS_2020 = ["Прогноз 2020 сценарій 1", "Прогноз 2020 сценарій 2", "Прогноз 2020 сценарій 3"]
-COLS_2021 = ["Прогноз 2021 сценарій 1", "Прогноз 2021 сценарій 2", "Прогноз 2021 сценарій 3"]
+COLS_2020 = ["Прогноз_2020_сценарій_1", "Прогноз_2020_сценарій_2", "Прогноз_2020_сценарій_3"]
+COLS_2021 = ["Прогноз_2021_сценарій_1", "Прогноз_2021_сценарій_2", "Прогноз_2021_сценарій_3"]
 SCENARIO_COLS = COLS_2020 + COLS_2021
+
+def load_data() -> pd.DataFrame:
+    if USE_DB == "postgres":
+        import psycopg2
+        conn = psycopg2.connect(
+            host=os.environ["POSTGRES_HOST"],
+            port=int(os.environ.get("POSTGRES_PORT", 5432)),
+            dbname=os.environ["POSTGRES_DB"],
+            user=os.environ["POSTGRES_USER"],
+            password=os.environ["POSTGRES_PASSWORD"],
+        )
+        df = pd.read_sql("SELECT * FROM macro", conn)
+        conn.close()
+        print(f"[load] OK, shape={df.shape}")
+        return df
+    else:
+        raw = Path(__file__).resolve().parents[1] / "data" / "raw" / "macro_indicators.csv"
+        return pd.read_csv(raw)
 
 
 def _to_numeric_ua(series: pd.Series) -> pd.Series:
-    if series.dtype != "object":
+    if pd.api.types.is_numeric_dtype(series):
         return series
-    return pd.to_numeric(
+    cleaned = (
         series.astype(str)
-        .str.replace("\u00a0", "", regex=False)
-        .str.replace(" ", "", regex=False)
-        .str.replace(",", ".", regex=False),
-        errors="coerce",
+        .str.strip()
+        .str.replace(r"[\u00a0\u2009\u202f\u2000-\u200b\s]", "", regex=True)
+        .str.replace(",", ".", regex=False)
     )
+    return pd.to_numeric(cleaned, errors="coerce")
 
 
 def prepare(df: pd.DataFrame) -> pd.DataFrame:
@@ -47,9 +71,10 @@ def scenario_spread(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def year_over_year(df: pd.DataFrame, scenario: int = 2) -> pd.DataFrame:
-    c2020 = f"Прогноз 2020 сценарій {scenario}"
-    c2021 = f"Прогноз 2021 сценарій {scenario}"
-    out = df[["Показник", c2020, c2021]].copy()
+    c2020 = f"Прогноз_2020_сценарій_{scenario}"
+    c2021 = f"Прогноз_2021_сценарій_{scenario}"
+    ind = "Показник"
+    out = df[[ind, c2020, c2021]].copy()
     out["abs_change"] = out[c2021] - out[c2020]
     out["pct_change_%"] = ((out[c2021] - out[c2020]) / out[c2020] * 100).round(2)
     return out
@@ -62,8 +87,7 @@ def top_uncertain(df: pd.DataFrame, year: int = 2020, n: int = 5) -> pd.DataFram
 
 
 if __name__ == "__main__":
-    path = download()
-    df = prepare(load(path))
+    df = prepare(load_data())
 
     print("=== ОПИСОВА СТАТИСТИКА ===")
     print(basic_stats(df).to_string())
@@ -73,3 +97,14 @@ if __name__ == "__main__":
 
     print("\n=== ТОП-5 НАЙБІЛЬШ НЕВИЗНАЧЕНИХ ПОКАЗНИКІВ (2020) ===")
     print(top_uncertain(df, year=2020).to_string(index=False))
+
+    reports_dir = Path(REPORTS_PATH)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report = {
+        "year_over_year": year_over_year(df).to_dict(orient="records"),
+        "top_uncertain_2020": top_uncertain(df, year=2020).to_dict(orient="records"),
+    }
+    report_file = reports_dir / "research_report.json"
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    print(f"\n[research] Звіт збережено: {report_file}")

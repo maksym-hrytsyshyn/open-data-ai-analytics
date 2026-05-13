@@ -1,3 +1,6 @@
 pandas
 requests
 matplotlib
+flask
+psycopg2-binary
+sqlalchemy

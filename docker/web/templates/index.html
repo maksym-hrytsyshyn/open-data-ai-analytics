@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Макроекономічний аналіз України</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        h1 { color: #2c3e50; }
+        h2 { color: #34495e; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
+        .card { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { border-collapse: collapse; width: 100%; font-size: 12px; overflow-x: auto; display: block; }
+        th { background: #3498db; color: white; padding: 8px; text-align: left; white-space: nowrap; }
+        td { padding: 6px 8px; border-bottom: 1px solid #eee; white-space: nowrap; }
+        tr:hover { background: #f0f7ff; }
+        .metric { display: inline-block; margin: 10px 20px 10px 0; }
+        .metric-value { font-size: 28px; font-weight: bold; color: #3498db; }
+        .metric-label { font-size: 12px; color: #888; }
+        .plots { display: flex; gap: 20px; flex-wrap: wrap; }
+        .plots img { width: calc(50% - 10px); border-radius: 8px; }
+        .badge-ok { color: #27ae60; font-weight: bold; }
+        .badge-warn { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Макроекономічний аналіз України</h1>
+    <p>Основні прогнозні показники економічного і соціального розвитку (2020–2021)</p>
+
+    <div class="card">
+        <h2>Якість даних</h2>
+        {% if quality %}
+            <div>
+                <div class="metric">
+                    <div class="metric-value">{{ quality.rows }}</div>
+                    <div class="metric-label">Рядків</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">{{ quality.cols }}</div>
+                    <div class="metric-label">Колонок</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value {% if quality.missing_total == 0 %}badge-ok{% else %}badge-warn{% endif %}">
+                        {{ quality.missing_total }}
+                    </div>
+                    <div class="metric-label">Пропусків</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value {% if quality.duplicates == 0 %}badge-ok{% else %}badge-warn{% endif %}">
+                        {{ quality.duplicates }}
+                    </div>
+                    <div class="metric-label">Дублікатів</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">{{ quality.memory_kb }} KB</div>
+                    <div class="metric-label">Памʼять</div>
+                </div>
+            </div>
+        {% else %}
+            <p>Звіт ще не готовий — запустіть data_quality_analysis.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Завантажені дані</h2>
+        {% if table %}
+            <table>
+                <thead>
+                    <tr>{% for col in table.columns %}<th>{{ col }}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for row in table.rows %}
+                    <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Дані ще не завантажені.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Результати дослідження (2020 → 2021)</h2>
+        {% if research %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Показник</th>
+                        <th>2020 (сц. 2)</th>
+                        <th>2021 (сц. 2)</th>
+                        <th>Абс. зміна</th>
+                        <th>% зміна</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in research.year_over_year %}
+                    <tr>
+                        <td>{{ row["Показник"][:50] }}...</td>
+                        <td>{{ row["Прогноз 2020 сценарій 2"] }}</td>
+                        <td>{{ row["Прогноз 2021 сценарій 2"] }}</td>
+                        <td>{{ row["abs_change"] }}</td>
+                        <td>{{ row["pct_change_%"] }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Дослідження ще не виконано.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Візуалізації</h2>
+        <div class="plots">
+            {% if plots %}
+                {% for plot in plots %}
+                    <img src="/plots/{{ plot }}" alt="{{ plot }}">
+                {% endfor %}
+            {% else %}
+                <p>Графіки ще не згенеровані.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

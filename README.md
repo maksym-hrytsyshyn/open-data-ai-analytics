@@ -30,8 +30,139 @@ https://data.gov.ua/dataset/175386f8-fbce-4352-8ec9-44fc8c436aa9/resource/6c67d9
    ніж песимістичний (сценарій 3), але нижчі ніж оптимістичний.
 3. Показники інфляції мають менший розкид між сценаріями, ніж показники ВВП.
 
-## Структура
-- `data/` — сирі та оброблені дані (сирі не комітяться)
-- `notebooks/` — Jupyter-ноутбуки з експериментами
-- `src/` — модулі: `data_load`, `data_quality_analysis`, `data_research`, `visualization`
-- `reports/figures/` — згенеровані графіки
+## Структура проєкту
+
+```
+open-data-ai-analytics/
+├── actions-runner/               # Self-hosted GitHub Actions runner (лаби 1–4, не входить у Docker Compose)
+├── compose.yaml                  # Опис усіх сервісів
+├── requirements.txt              # Спільні залежності Python
+├── data/                         # Вхідний CSV-файл (монтується як volume)
+├── db/                           # Директорія для PostgreSQL даних
+├── plots/                        # Згенеровані графіки (volume)
+├── reports/                      # JSON-звіти та скріншоти
+│   └── figures/                  # PNG-графіки
+├── src/                          # Вихідний код модулів
+│   ├── data_load.py
+│   ├── data_quality_analysis.py
+│   ├── data_research.py
+│   └── visualization.py
+└── docker/                       # Dockerfile для кожного сервісу
+    ├── data_load/Dockerfile
+    ├── data_quality_analysis/Dockerfile
+    ├── data_research/Dockerfile
+    ├── visualization/Dockerfile
+    └── web/
+        ├── Dockerfile
+        ├── app.py
+        └── templates/index.html
+```
+
+---
+
+## Сервіси
+
+| Сервіс                  | Опис                                                      | Порт  |
+|-------------------------|-----------------------------------------------------------|-------|
+| `postgres`              | PostgreSQL 16 — зберігає таблицю `macro`                 | 5432  |
+| `data_load`             | Читає CSV, створює таблицю, завантажує дані у БД         | —     |
+| `data_quality_analysis` | Аналіз якості: пропуски, дублікати, типи → JSON-звіт     | —     |
+| `data_research`         | Базові статистики, YoY-аналіз, топ-5 невизначеності      | —     |
+| `visualization`         | Генерує 3 графіки PNG у `/plots`                         | —     |
+| `web`                   | Flask-інтерфейс для перегляду всіх результатів           | 5000  |
+
+---
+
+## Запуск
+
+### Передумови
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) або Docker Engine + Compose Plugin
+
+### Одна команда
+
+```bash
+docker compose up --build
+```
+
+Після запуску відкрити у браузері: [http://localhost:5000](http://localhost:5000)
+
+### Зупинка
+
+```bash
+docker compose down
+```
+
+Щоб також видалити дані PostgreSQL:
+
+```bash
+docker compose down -v
+```
+
+---
+
+## Взаємодія між сервісами
+
+```
+CSV-файл
+   │
+   ▼
+data_load ──────────► PostgreSQL (таблиця macro)
+                            │
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+  data_quality_analysis  data_research  visualization
+              │             │             │
+              ▼             ▼             ▼
+        quality_report  research_report  plots/*.png
+              │             │             │
+              └─────────────┴─────────────┘
+                            │
+                            ▼
+                          web (Flask :5000)
+```
+
+Обмін даними відбувається через:
+- **PostgreSQL** — основне сховище табличних даних
+- **Docker volumes** — передача звітів (`/reports`) та графіків (`/plots`) між контейнерами
+
+---
+
+## Змінні середовища
+
+Задаються у `compose.yaml`. Основні:
+
+| Змінна              | Значення за замовчуванням | Опис                        |
+|---------------------|---------------------------|-----------------------------|
+| `POSTGRES_HOST`     | `postgres`                | Хост БД                     |
+| `POSTGRES_PORT`     | `5432`                    | Порт БД                     |
+| `POSTGRES_DB`       | `macro`                   | Назва бази даних            |
+| `POSTGRES_USER`     | `macro_user`              | Користувач БД               |
+| `POSTGRES_PASSWORD` | `macro_pass`              | Пароль БД                   |
+| `USE_DB`            | `postgres`                | Режим підключення до даних  |
+| `PLOTS_PATH`        | `/app/plots`              | Шлях до графіків            |
+| `REPORTS_PATH`      | `/app/reports`            | Шлях до звітів              |
+
+---
+
+## Веб-інтерфейс
+
+Доступний за адресою **http://localhost:5000**
+
+Відображає:
+- короткий опис проєкту
+- результати перевірки якості даних
+- завантажені дані з БД у вигляді таблиці
+- результати дослідження (YoY, топ-5)
+- згенеровані графіки
+
+---
+
+## Технічний стек
+
+- **Python 3.11**
+- **PostgreSQL 16**
+- **pandas**, **matplotlib**, **psycopg2**, **SQLAlchemy**
+- **Flask**
+- **Docker Compose**
+

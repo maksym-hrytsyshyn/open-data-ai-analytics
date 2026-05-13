@@ -1,5 +1,31 @@
 from __future__ import annotations
+import os
+import json
+from pathlib import Path
 import pandas as pd
+
+USE_DB = os.environ.get("USE_DB", "")
+REPORTS_PATH = os.environ.get(
+    "REPORTS_PATH",
+    str(Path(__file__).resolve().parents[1] / "reports")
+)
+
+def load_data() -> pd.DataFrame:
+    if USE_DB == "postgres":
+        import psycopg2
+        conn = psycopg2.connect(
+            host=os.environ["POSTGRES_HOST"],
+            port=int(os.environ.get("POSTGRES_PORT", 5432)),
+            dbname=os.environ["POSTGRES_DB"],
+            user=os.environ["POSTGRES_USER"],
+            password=os.environ["POSTGRES_PASSWORD"],
+        )
+        df = pd.read_sql("SELECT * FROM macro", conn)
+        conn.close()
+        return df
+    else:
+        raw = Path(__file__).resolve().parents[1] / "data" / "raw" / "macro_indicators.csv"
+        return pd.read_csv(raw)
 
 def quality_report(df: pd.DataFrame) -> dict:
     return {
@@ -47,15 +73,13 @@ def print_report(df: pd.DataFrame) -> None:
 
 
 if __name__ == "__main__":
-    import sys
-    sys.path.insert(0, "src")
-    from data_load import download, load
-
-    path = download()
-    df = load(path)
+    df = load_data()
+    report = quality_report(df)
     print_report(df)
 
-    print("\n=== ПІСЛЯ КОНВЕРТАЦІЇ ===")
-    df_num = coerce_numeric_columns(df, exclude=["Unnamed: 0", "Показник"])
-    print(df_num.dtypes)
-    print(df_num.head())
+    reports_dir = Path(REPORTS_PATH)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_file = reports_dir / "quality_report.json"
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    print(f"\n[quality] Звіт збережено: {report_file}")
