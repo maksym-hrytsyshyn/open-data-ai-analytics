@@ -94,10 +94,10 @@
                     {% for row in research.year_over_year %}
                     <tr>
                         <td>{{ row["Показник"][:50] }}...</td>
-                        <td>{{ row["Прогноз 2020 сценарій 2"] }}</td>
-                        <td>{{ row["Прогноз 2021 сценарій 2"] }}</td>
-                        <td>{{ row["abs_change"] }}</td>
-                        <td>{{ row["pct_change_%"] }}%</td>
+                        <td>{{ row["Прогноз_2020_сценарій_2"] }}</td>
+                        <td>{{ row["Прогноз_2021_сценарій_2"] }}</td>
+                        <td>{{ "%.2f"|format(row["abs_change"]) }}</td>
+                        <td>{{ "%.2f"|format(row["pct_change_%"]) }}%</td>
                     </tr>
                     {% endfor %}
                 </tbody>

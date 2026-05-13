@@ -77,6 +77,7 @@ def year_over_year(df: pd.DataFrame, scenario: int = 2) -> pd.DataFrame:
     out = df[[ind, c2020, c2021]].copy()
     out["abs_change"] = out[c2021] - out[c2020]
     out["pct_change_%"] = ((out[c2021] - out[c2020]) / out[c2020] * 100).round(2)
+    out["abs_change"] = out["abs_change"].round(2)
     return out
 
 
