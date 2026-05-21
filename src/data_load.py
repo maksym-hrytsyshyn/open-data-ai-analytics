@@ -88,11 +88,22 @@ def save_to_postgres(df: pd.DataFrame) -> None:
     print(f"[data_load] Збережено {len(df)} рядків у PostgreSQL")
 
 if __name__ == "__main__":
-    try:
-        csv_path = download()
-    except requests.HTTPError as exc:
-        print(f"[error] HTTP {exc.response.status_code}: {exc}")
-        sys.exit(1)
+    local_path = RAW_DIR / DEFAULT_FILENAME
+    if local_path.exists():
+        print(f"[data_load] Using local file: {local_path}")
+        csv_path = local_path
+    else:
+        try:
+            csv_path = download()
+        except requests.HTTPError as exc:
+            print(f"[error] HTTP {exc.response.status_code}: {exc}")
+            # fallback: also check data/ root
+            fallback = PROJECT_ROOT / "data" / DEFAULT_FILENAME
+            if fallback.exists():
+                print(f"[data_load] Fallback to: {fallback}")
+                csv_path = fallback
+            else:
+                sys.exit(1)
 
     df = load(csv_path)
 
