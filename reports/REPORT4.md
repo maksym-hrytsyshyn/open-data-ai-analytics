@@ -36,11 +36,11 @@ NSG містить два правила безпеки:
 
 ### Скріншот: terraform init + validate
 
-![terraform init validate](reports/screenshots/terraform_init_validate.jpeg)
+![terraform init validate](screenshots/terraform_init_validate.jpeg)
 
 ### Скріншот: terraform plan
 
-![terraform plan](reports/screenshots/terraform_plan.jpeg)
+![terraform plan](screenshots/terraform_plan.jpeg)
 
 ---
 
@@ -125,9 +125,9 @@ else:
 
 ### 4.1. Створена VM та public IP
 
-![vm overview](reports/screenshots/vm_overview.jpeg)
+![vm overview](screenshots/vm_overview.jpeg)
 
-![vm networking](reports/screenshots/vm_networking.jpeg)
+![vm networking](screenshots/vm_networking.jpeg)
 
 - **Назва VM:** open-data-ai-vm
 - **Статус:** Running
@@ -145,11 +145,11 @@ curl http://74.248.97.222:5001
 
 ### 4.3. Працюючий веб-інтерфейс
 
-![web quality](reports/screenshots/web_quality.png)
+![web quality](screenshots/web_quality.png)
 
-![web research](reports/screenshots/web_research.png)
+![web research](screenshots/web_research.png)
 
-![web plots](reports/screenshots/web_plots.png)
+![web plots](screenshots/web_plots.png)
 
 Веб-інтерфейс доступний за адресою `http://74.248.97.222:5001` і відображає:
 - Таблицю якості даних (17 рядків, 8 колонок, 0 пропусків, 0 дублікатів)
